@@ -55,22 +55,29 @@ def generate_prototypes(train,n):
     positive_prototypes = []
     class_positive_centroid = train_positive.mean()
     class_negative_centroid = train_negative.mean()
+    '''
     var_max_positive = train_positive.var()/20
     var_min_positive = train_positive.var()/100
     var_max_negative = train_negative.var()/20
     var_min_negative = train_negative.var()/100
+    '''
 
     for i in range(0,amount_negative_prototypes):
 
         if i == 0:
             negative_prototypes.append(class_negative_centroid)
         else:
+            new_prototype = train_positive.iloc[np.random.randint(0,train_positive.shape[0])]
+            new_prototype = new_prototype + 0.5 * (class_negative_centroid - new_prototype)
+            new_prototype["problems"]  = 0
+            '''
             new_prototype = class_negative_centroid
             for i in train_negative.columns:
                 if i == 'problems' or i == 'defects':
                     break
                 else:
-                    new_prototype[i] = new_prototype[i] + np.random.uniform(var_min_negative[i],var_max_negative[i]) 
+                    new_prototype[i] = new_prototype[i] + np.random.uniform(var_min_negative[i],var_max_negative[i])
+            '''
             negative_prototypes.append( new_prototype )
             
 
@@ -79,12 +86,17 @@ def generate_prototypes(train,n):
         if i == 0:
             positive_prototypes.append(class_positive_centroid)
         else:
+            new_prototype = train_positive.iloc[np.random.randint(0,train_positive.shape[0])]
+            new_prototype = new_prototype + 0.5 * (class_positive_centroid - new_prototype)
+            new_prototype["problems"]  = 1
+            '''
             new_prototype = class_positive_centroid
             for i in train_positive.columns:
                 if i == 'problems' or i == 'defects':
                     break
                 else:
-                    new_prototype[i] = new_prototype[i] + np.random.uniform(var_min_positive[i],var_max_positive[i])            
+                    new_prototype[i] = new_prototype[i] + np.random.uniform(var_min_positive[i],var_max_positive[i])
+            '''        
             positive_prototypes.append( new_prototype )
 
     return positive_prototypes, negative_prototypes 
@@ -128,7 +140,7 @@ def get_index_prototypes(prototypes):
 def inside_window(p1,p2):
     w = 0.2
     s = (1 - w) / (1 + w)
-    if min(p1,p2) > s:
+    if min(p1/p2,p2/p1) > s:
         return True
     else:
         return False
@@ -137,18 +149,19 @@ def lvq1(df,positive_prototypes,negative_prototypes,n):
     #prototypes = generate_prototypes(df,n)
     #df.reset_index(drop=True)
     prototypes = positive_prototypes[0:mt.floor(n/2)] + negative_prototypes[0:mt.ceil(n/2)]
-    for i in range(0,df.shape[0]):
-        try: df.iloc[i]
-        except: code.interact(local=dict(globals(), **locals()))
-        else:
-            x = df.iloc[i]
-            nearst_prototype,index = get_nearst_prototype(x,prototypes)
-
-            if get_class(nearst_prototype) == get_class(x):
-                nearst_prototype = nearst_prototype + 0.2 * (x - nearst_prototype)
+    for r in range(0,100):
+        for i in range(0,df.shape[0]):
+            try: df.iloc[i]
+            except: code.interact(local=dict(globals(), **locals()))
             else:
-                nearst_prototype = nearst_prototype - 0.2 * (x - nearst_prototype)
-            prototypes[index] = nearst_prototype
+                x = df.iloc[i]
+                nearst_prototype,index = get_nearst_prototype(x,prototypes)
+
+                if get_class(nearst_prototype) == get_class(x):
+                    nearst_prototype = nearst_prototype + 0.2 * (x - nearst_prototype)
+                else:
+                    nearst_prototype = nearst_prototype - 0.2 * (x - nearst_prototype)
+                prototypes[index] = nearst_prototype
     return pd.DataFrame(prototypes)
 
 def lvq2(df,positive_prototypes,negative_prototypes,n):
@@ -156,34 +169,35 @@ def lvq2(df,positive_prototypes,negative_prototypes,n):
     #prototypes = generate_prototypes(df,n)
     prototypes = positive_prototypes[0:mt.floor(n/2)] + negative_prototypes[0:mt.ceil(n/2)]
     indexed_prototypes = get_index_prototypes(prototypes)
-    for i in range(0,df.shape[0]):
-        try: df.iloc[i]
-        except: code.interact(local=dict(globals(), **locals()))
-        else:
-            x = df.iloc[i]
-            nearst_prototypes = get_ordered_nearst_prototypes(x,indexed_prototypes)
-            nearst_prototype1 = nearst_prototypes[0][0]
-            nearst_prototype2 = nearst_prototypes[1][0]
-            nearst_prototype1_index = nearst_prototypes[0][1]
-            nearst_prototype2_index = nearst_prototypes[1][1]
-            dist_x_p1 = nearst_prototypes[0][2]
-            dist_x_p2 = nearst_prototypes[1][2]
+    for r in range(0,100):
+        for i in range(0,df.shape[0]):
+            try: df.iloc[i]
+            except: code.interact(local=dict(globals(), **locals()))
+            else:
+                x = df.iloc[i]
+                nearst_prototypes = get_ordered_nearst_prototypes(x,indexed_prototypes)
+                nearst_prototype1 = nearst_prototypes[0][0]
+                nearst_prototype2 = nearst_prototypes[1][0]
+                nearst_prototype1_index = nearst_prototypes[0][1]
+                nearst_prototype2_index = nearst_prototypes[1][1]
+                dist_x_p1 = nearst_prototypes[0][2]
+                dist_x_p2 = nearst_prototypes[1][2]
 
 
-            if  inside_window(dist_x_p1,dist_x_p2):
-                if (get_class(nearst_prototype1) != get_class(nearst_prototype2)):
-                    if get_class(nearst_prototype1) == get_class(x):
-                        nearst_prototype1 = nearst_prototype1 + 0.2 * (x - nearst_prototype1)
-                        nearst_prototype2 = nearst_prototype2 - 0.2 * (x - nearst_prototype2)
-                    else:
-                        nearst_prototype1 = nearst_prototype1 - 0.2 * (x - nearst_prototype1)
-                        nearst_prototype2 = nearst_prototype2 + 0.2 * (x - nearst_prototype2)
+                if  inside_window(dist_x_p1,dist_x_p2):
+                    if (get_class(nearst_prototype1) != get_class(nearst_prototype2)):
+                        if get_class(nearst_prototype1) == get_class(x):
+                            nearst_prototype1 = nearst_prototype1 + 0.2 * (x - nearst_prototype1)
+                            nearst_prototype2 = nearst_prototype2 - 0.2 * (x - nearst_prototype2)
+                        else:
+                            nearst_prototype1 = nearst_prototype1 - 0.2 * (x - nearst_prototype1)
+                            nearst_prototype2 = nearst_prototype2 + 0.2 * (x - nearst_prototype2)
 
-            for p in indexed_prototypes:
-                if p[1] == nearst_prototype1_index:
-                    prototypes[p[1]] = nearst_prototype1
-                if p[1] == nearst_prototype2_index:
-                    prototypes[p[1]] = nearst_prototype2
+                for p in indexed_prototypes:
+                    if p[1] == nearst_prototype1_index:
+                        prototypes[p[1]] = nearst_prototype1
+                    if p[1] == nearst_prototype2_index:
+                        prototypes[p[1]] = nearst_prototype2
     lvq2_prototypes = pd.DataFrame(prototypes)
     lvq2_prototypes = lvq2_prototypes.reset_index(drop=True)
 
@@ -195,35 +209,36 @@ def lvq3(df,positive_prototypes,negative_prototypes,n):
     prototypes = positive_prototypes[0:mt.floor(n/2)] + negative_prototypes[0:mt.ceil(n/2)]
     e = 0.3
     indexed_prototypes = get_index_prototypes(prototypes)
-    for i in range(0,df.shape[0]):
-        try: df.iloc[i]
-        except: code.interact(local=dict(globals(), **locals()))
-        else:
-            x = df.iloc[i]
-            nearst_prototypes = get_ordered_nearst_prototypes(x,indexed_prototypes)
-            nearst_prototype1 = nearst_prototypes[0][0]
-            nearst_prototype2 = nearst_prototypes[1][0]
-            nearst_prototype1_index = nearst_prototypes[0][1]
-            nearst_prototype2_index = nearst_prototypes[1][1]
-            dist_x_p1 = nearst_prototypes[0][2]
-            dist_x_p2 = nearst_prototypes[1][2]
+    for r in range(0,100):
+        for i in range(0,df.shape[0]):
+            try: df.iloc[i]
+            except: code.interact(local=dict(globals(), **locals()))
+            else:
+                x = df.iloc[i]
+                nearst_prototypes = get_ordered_nearst_prototypes(x,indexed_prototypes)
+                nearst_prototype1 = nearst_prototypes[0][0]
+                nearst_prototype2 = nearst_prototypes[1][0]
+                nearst_prototype1_index = nearst_prototypes[0][1]
+                nearst_prototype2_index = nearst_prototypes[1][1]
+                dist_x_p1 = nearst_prototypes[0][2]
+                dist_x_p2 = nearst_prototypes[1][2]
 
 
-            if  inside_window(dist_x_p1,dist_x_p2):
-                if (get_class(nearst_prototype1) != get_class(nearst_prototype2)):
-                    if get_class(nearst_prototype1) == get_class(x):
-                        nearst_prototype1 = nearst_prototype1 + 0.2 * (x - nearst_prototype1)
-                        nearst_prototype2 = nearst_prototype2 - 0.2 * (x - nearst_prototype2)
-                    
-                else:
-                    nearst_prototype1 = nearst_prototype1 + e * 0.2 * (x - nearst_prototype1)
-                    nearst_prototype2 = nearst_prototype2 + e * 0.2 * (x - nearst_prototype2)
+                if  inside_window(dist_x_p1,dist_x_p2):
+                    if (get_class(nearst_prototype1) != get_class(nearst_prototype2)):
+                        if get_class(nearst_prototype1) == get_class(x):
+                            nearst_prototype1 = nearst_prototype1 + 0.2 * (x - nearst_prototype1)
+                            nearst_prototype2 = nearst_prototype2 - 0.2 * (x - nearst_prototype2)
+                        
+                    else:
+                        nearst_prototype1 = nearst_prototype1 + e * 0.2 * (x - nearst_prototype1)
+                        nearst_prototype2 = nearst_prototype2 + e * 0.2 * (x - nearst_prototype2)
 
-            for p in indexed_prototypes:
-                if p[1] == nearst_prototype1_index:
-                    prototypes[p[1]] = nearst_prototype1
-                if p[1] == nearst_prototype2_index:
-                    prototypes[p[1]] = nearst_prototype2
+                for p in indexed_prototypes:
+                    if p[1] == nearst_prototype1_index:
+                        prototypes[p[1]] = nearst_prototype1
+                    if p[1] == nearst_prototype2_index:
+                        prototypes[p[1]] = nearst_prototype2
     lvq3_prototypes = pd.DataFrame(prototypes)
     lvq3_prototypes = lvq3_prototypes.reset_index(drop=True)
 
@@ -265,7 +280,7 @@ def execute_experiment(df_in,k_values,amount_prototypes):
             tp_rate_list_default.append((k,tp_rate))
             fp_rate_list_default.append((k,fp_rate))
             
-            lvq_positive_prototypes,lvq_negative_prototypes = generate_prototypes(train_base,10)
+            lvq_positive_prototypes,lvq_negative_prototypes = generate_prototypes(train_base,12)
             #lvq_prototypes = lvq_positive_prototypes + lvq_negative_prototypes
             #code.interact(local=dict(globals(), **locals()))
             for n in amount_prototypes:
@@ -313,11 +328,6 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     knn_default_3_tp = []
     knn_default_3_fp = []
 
-    knn_lvq1_n2_1_tp = [] ## k-nn com LVQ1 n = 2
-    knn_lvq1_n2_1_fp = []
-    knn_lvq1_n2_3_tp = []
-    knn_lvq1_n2_3_fp = []
-
     knn_lvq1_n4_1_tp = [] ## k-nn com LVQ1 n = 4
     knn_lvq1_n4_1_fp = []
     knn_lvq1_n4_3_tp = []
@@ -337,11 +347,11 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     knn_lvq1_n10_1_fp = []
     knn_lvq1_n10_3_tp = []
     knn_lvq1_n10_3_fp = []
-
-    knn_lvq2_n2_1_tp = [] ## k-nn com LVQ2.1 n = 2
-    knn_lvq2_n2_1_fp = []
-    knn_lvq2_n2_3_tp = []
-    knn_lvq2_n2_3_fp = []
+    
+    knn_lvq1_n12_1_tp = [] ## k-nn com LVQ1 n = 12
+    knn_lvq1_n12_1_fp = []
+    knn_lvq1_n12_3_tp = []
+    knn_lvq1_n12_3_fp = []
 
     knn_lvq2_n4_1_tp = [] ## k-nn com LVQ2.1 n = 4
     knn_lvq2_n4_1_fp = []
@@ -363,10 +373,10 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     knn_lvq2_n10_3_tp = []
     knn_lvq2_n10_3_fp = []
 
-    knn_lvq3_n2_1_tp = [] ## k-nn com LVQ3 n = 2
-    knn_lvq3_n2_1_fp = []
-    knn_lvq3_n2_3_tp = []
-    knn_lvq3_n2_3_fp = []
+    knn_lvq2_n12_1_tp = [] ## k-nn com LVQ2.1 n = 12
+    knn_lvq2_n12_1_fp = []
+    knn_lvq2_n12_3_tp = []
+    knn_lvq2_n12_3_fp = []
 
     knn_lvq3_n4_1_tp = [] ## k-nn com LVQ3 n = 4
     knn_lvq3_n4_1_fp = []
@@ -388,6 +398,11 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     knn_lvq3_n10_3_tp = []
     knn_lvq3_n10_3_fp = []
 
+    knn_lvq3_n12_1_tp = [] ## k-nn com LVQ3 n = 12
+    knn_lvq3_n12_1_fp = []
+    knn_lvq3_n12_3_tp = []
+    knn_lvq3_n12_3_fp = []
+
 
     for i in tp_rate_list_default:      # kNN Default
         if i[0] == 1:
@@ -404,8 +419,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     for i in tp_rate_list_lvq1:                 # kNN comLVQ1
         for j in i:
             if j[0] == 1:
-                if j[1] == 2:
-                    knn_lvq1_n2_1_tp.append(j[2])
+                if j[1] == 12:
+                    knn_lvq1_n12_1_tp.append(j[2])
                 elif j[1] == 4:
                     knn_lvq1_n4_1_tp.append(j[2])
                 elif j[1] == 6:
@@ -415,8 +430,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
                 elif j[1] == 10:
                     knn_lvq1_n10_1_tp.append(j[2])
             else:
-                if j[1] == 2:
-                    knn_lvq1_n2_3_tp.append(j[2])
+                if j[1] == 12:
+                    knn_lvq1_n12_3_tp.append(j[2])
                 elif j[1] == 4:
                     knn_lvq1_n4_3_tp.append(j[2])
                 elif j[1] == 6:
@@ -429,8 +444,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     for i in fp_rate_list_lvq1:
             for j in i:
                 if j[0] == 1:
-                    if j[1] == 2:
-                        knn_lvq1_n2_1_fp.append(j[2])
+                    if j[1] == 12:
+                        knn_lvq1_n12_1_fp.append(j[2])
                     elif j[1] == 4:
                         knn_lvq1_n4_1_fp.append(j[2])
                     elif j[1] == 6:
@@ -440,8 +455,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
                     elif j[1] == 10:
                         knn_lvq1_n10_1_fp.append(j[2])
                 else:
-                    if j[1] == 2:
-                        knn_lvq1_n2_3_fp.append(j[2])
+                    if j[1] == 12:
+                        knn_lvq1_n12_3_fp.append(j[2])
                     elif j[1] == 4:
                         knn_lvq1_n4_3_fp.append(j[2])
                     elif j[1] == 6:
@@ -454,8 +469,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     for i in tp_rate_list_lvq2:                 # kNN comLVQ2.1
         for j in i:
             if j[0] == 1:
-                if j[1] == 2:
-                    knn_lvq2_n2_1_tp.append(j[2])
+                if j[1] == 12:
+                    knn_lvq2_n12_1_tp.append(j[2])
                 elif j[1] == 4:
                     knn_lvq2_n4_1_tp.append(j[2])
                 elif j[1] == 6:
@@ -465,8 +480,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
                 elif j[1] == 10:
                     knn_lvq2_n10_1_tp.append(j[2])
             else:
-                if j[1] == 2:
-                    knn_lvq2_n2_3_tp.append(j[2])
+                if j[1] == 12:
+                    knn_lvq2_n12_3_tp.append(j[2])
                 elif j[1] == 4:
                     knn_lvq2_n4_3_tp.append(j[2])
                 elif j[1] == 6:
@@ -479,8 +494,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     for i in fp_rate_list_lvq2:   # LVQ2.1
             for j in i:
                 if j[0] == 1:
-                    if j[1] == 2:
-                        knn_lvq2_n2_1_fp.append(j[2])
+                    if j[1] == 12:
+                        knn_lvq2_n12_1_fp.append(j[2])
                     elif j[1] == 4:
                         knn_lvq2_n4_1_fp.append(j[2])
                     elif j[1] == 6:
@@ -490,8 +505,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
                     elif j[1] == 10:
                         knn_lvq2_n10_1_fp.append(j[2])
                 else:
-                    if j[1] == 2:
-                        knn_lvq2_n2_3_fp.append(j[2])
+                    if j[1] == 12:
+                        knn_lvq2_n12_3_fp.append(j[2])
                     elif j[1] == 4:
                         knn_lvq2_n4_3_fp.append(j[2])
                     elif j[1] == 6:
@@ -504,8 +519,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     for i in tp_rate_list_lvq3:                 # kNN comLVQ3
         for j in i:
             if j[0] == 1:
-                if j[1] == 2:
-                    knn_lvq3_n2_1_tp.append(j[2])
+                if j[1] == 12:
+                    knn_lvq3_n12_1_tp.append(j[2])
                 elif j[1] == 4:
                     knn_lvq3_n4_1_tp.append(j[2])
                 elif j[1] == 6:
@@ -515,8 +530,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
                 elif j[1] == 10:
                     knn_lvq3_n10_1_tp.append(j[2])
             else:
-                if j[1] == 2:
-                    knn_lvq3_n2_3_tp.append(j[2])
+                if j[1] == 12:
+                    knn_lvq3_n12_3_tp.append(j[2])
                 elif j[1] == 4:
                     knn_lvq3_n4_3_tp.append(j[2])
                 elif j[1] == 6:
@@ -529,8 +544,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
     for i in fp_rate_list_lvq3:   # LVQ3
             for j in i:
                 if j[0] == 1:
-                    if j[1] == 2:
-                        knn_lvq3_n2_1_fp.append(j[2])
+                    if j[1] == 12:
+                        knn_lvq3_n12_1_fp.append(j[2])
                     elif j[1] == 4:
                         knn_lvq3_n4_1_fp.append(j[2])
                     elif j[1] == 6:
@@ -540,8 +555,8 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
                     elif j[1] == 10:
                         knn_lvq3_n10_1_fp.append(j[2])
                 else:
-                    if j[1] == 2:
-                        knn_lvq3_n2_3_fp.append(j[2])
+                    if j[1] == 12:
+                        knn_lvq3_n12_3_fp.append(j[2])
                     elif j[1] == 4:
                         knn_lvq3_n4_3_fp.append(j[2])
                     elif j[1] == 6:
@@ -551,20 +566,20 @@ def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp
                     elif j[1] == 10:
                         knn_lvq3_n10_3_fp.append(j[2])
 
-    lvq1_k1_tp_values = [mean(knn_lvq1_n2_1_tp),mean(knn_lvq1_n4_1_tp),mean(knn_lvq1_n6_1_tp),mean(knn_lvq1_n8_1_tp),mean(knn_lvq1_n10_1_tp)]
-    lvq1_k3_tp_values = [mean(knn_lvq1_n2_3_tp),mean(knn_lvq1_n4_3_tp),mean(knn_lvq1_n6_3_tp),mean(knn_lvq1_n8_3_tp),mean(knn_lvq1_n10_3_tp)]
-    lvq1_k1_fp_values = [mean(knn_lvq1_n2_1_fp),mean(knn_lvq1_n4_1_fp),mean(knn_lvq1_n6_1_fp),mean(knn_lvq1_n8_1_fp),mean(knn_lvq1_n10_1_fp)]
-    lvq1_k3_fp_values = [mean(knn_lvq1_n2_3_fp),mean(knn_lvq1_n4_3_fp),mean(knn_lvq1_n6_3_fp),mean(knn_lvq1_n8_3_fp),mean(knn_lvq1_n10_3_fp)]
+    lvq1_k1_tp_values = [mean(knn_lvq1_n4_1_tp),mean(knn_lvq1_n6_1_tp),mean(knn_lvq1_n8_1_tp),mean(knn_lvq1_n10_1_tp),mean(knn_lvq1_n12_1_tp)]
+    lvq1_k3_tp_values = [mean(knn_lvq1_n4_3_tp),mean(knn_lvq1_n6_3_tp),mean(knn_lvq1_n8_3_tp),mean(knn_lvq1_n10_3_tp),mean(knn_lvq1_n12_3_tp)]
+    lvq1_k1_fp_values = [mean(knn_lvq1_n4_1_fp),mean(knn_lvq1_n6_1_fp),mean(knn_lvq1_n8_1_fp),mean(knn_lvq1_n10_1_fp),mean(knn_lvq1_n12_1_fp)]
+    lvq1_k3_fp_values = [mean(knn_lvq1_n4_3_fp),mean(knn_lvq1_n6_3_fp),mean(knn_lvq1_n8_3_fp),mean(knn_lvq1_n10_3_fp),mean(knn_lvq1_n12_3_fp)]
 
-    lvq2_k1_tp_values = [mean(knn_lvq2_n2_1_tp),mean(knn_lvq2_n4_1_tp),mean(knn_lvq2_n6_1_tp),mean(knn_lvq2_n8_1_tp),mean(knn_lvq2_n10_1_tp)]
-    lvq2_k3_tp_values = [mean(knn_lvq2_n2_3_tp),mean(knn_lvq2_n4_3_tp),mean(knn_lvq2_n6_3_tp),mean(knn_lvq2_n8_3_tp),mean(knn_lvq2_n10_3_tp)]
-    lvq2_k1_fp_values = [mean(knn_lvq2_n2_1_fp),mean(knn_lvq2_n4_1_fp),mean(knn_lvq2_n6_1_fp),mean(knn_lvq2_n8_1_fp),mean(knn_lvq2_n10_1_fp)]
-    lvq2_k3_fp_values = [mean(knn_lvq2_n2_3_fp),mean(knn_lvq2_n4_3_fp),mean(knn_lvq2_n6_3_fp),mean(knn_lvq2_n8_3_fp),mean(knn_lvq2_n10_3_fp)]
+    lvq2_k1_tp_values = [mean(knn_lvq2_n4_1_tp),mean(knn_lvq2_n6_1_tp),mean(knn_lvq2_n8_1_tp),mean(knn_lvq2_n10_1_tp),mean(knn_lvq2_n12_1_tp)]
+    lvq2_k3_tp_values = [mean(knn_lvq2_n4_3_tp),mean(knn_lvq2_n6_3_tp),mean(knn_lvq2_n8_3_tp),mean(knn_lvq2_n10_3_tp),mean(knn_lvq2_n12_3_tp)]
+    lvq2_k1_fp_values = [mean(knn_lvq2_n4_1_fp),mean(knn_lvq2_n6_1_fp),mean(knn_lvq2_n8_1_fp),mean(knn_lvq2_n10_1_fp),mean(knn_lvq2_n12_1_fp)]
+    lvq2_k3_fp_values = [mean(knn_lvq2_n4_3_fp),mean(knn_lvq2_n6_3_fp),mean(knn_lvq2_n8_3_fp),mean(knn_lvq2_n10_3_fp),mean(knn_lvq2_n12_3_fp)]
 
-    lvq3_k1_tp_values = [mean(knn_lvq3_n2_1_tp),mean(knn_lvq3_n4_1_tp),mean(knn_lvq3_n6_1_tp),mean(knn_lvq3_n8_1_tp),mean(knn_lvq3_n10_1_tp)]
-    lvq3_k3_tp_values = [mean(knn_lvq3_n2_3_tp),mean(knn_lvq3_n4_3_tp),mean(knn_lvq3_n6_3_tp),mean(knn_lvq3_n8_3_tp),mean(knn_lvq3_n10_3_tp)]
-    lvq3_k1_fp_values = [mean(knn_lvq3_n2_1_fp),mean(knn_lvq3_n4_1_fp),mean(knn_lvq3_n6_1_fp),mean(knn_lvq3_n8_1_fp),mean(knn_lvq3_n10_1_fp)]
-    lvq3_k3_fp_values = [mean(knn_lvq3_n2_3_fp),mean(knn_lvq3_n4_3_fp),mean(knn_lvq3_n6_3_fp),mean(knn_lvq3_n8_3_fp),mean(knn_lvq3_n10_3_fp)]
+    lvq3_k1_tp_values = [mean(knn_lvq3_n4_1_tp),mean(knn_lvq3_n6_1_tp),mean(knn_lvq3_n8_1_tp),mean(knn_lvq3_n10_1_tp),mean(knn_lvq3_n12_1_tp)]
+    lvq3_k3_tp_values = [mean(knn_lvq3_n4_3_tp),mean(knn_lvq3_n6_3_tp),mean(knn_lvq3_n8_3_tp),mean(knn_lvq3_n10_3_tp),mean(knn_lvq3_n12_3_tp)]
+    lvq3_k1_fp_values = [mean(knn_lvq3_n4_1_fp),mean(knn_lvq3_n6_1_fp),mean(knn_lvq3_n8_1_fp),mean(knn_lvq3_n10_1_fp),mean(knn_lvq3_n12_1_fp)]
+    lvq3_k3_fp_values = [mean(knn_lvq3_n4_3_fp),mean(knn_lvq3_n6_3_fp),mean(knn_lvq3_n8_3_fp),mean(knn_lvq3_n10_3_fp),mean(knn_lvq3_n12_3_fp)]
 
     print("K = 1: \ntp_rate_list_normal = [ {} ]\nfp_rate_list_normal = [ {} ] ".format(str(mean(knn_default_1_tp)),str(mean(knn_default_1_fp))))
     print("K = 1, LVQ1: \ntp_rate_list_lvq1 = {}\nfp_rate_list_lvq1 = {}".format(str(lvq1_k1_tp_values),str(lvq1_k1_fp_values)))
@@ -597,7 +612,7 @@ def pre_knn(df_train,df_test,k):
 database_name_1 = 'kc1.arff'
 database_name_2 = 'kc2.arff'
 
-for i in [database_name_1]:
+for i in [database_name_1,database_name_2]:
     data = arff.loadarff(i)
 
     df = pd.DataFrame(data[0])
@@ -613,4 +628,4 @@ for i in [database_name_1]:
         df['problems']
 
     print("Start experiment for database {}".format(i))
-    execute_experiment(df,[1,3],[2,4,6,8,10])
+    execute_experiment(df,[1,3],[4,6,8,10,12])
