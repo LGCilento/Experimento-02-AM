@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-#from google.colab import files
 from sklearn import preprocessing
 from scipy.io import arff
 from sklearn.utils import shuffle
@@ -43,7 +42,7 @@ def knn_normal(k, train, test, test_labels):
             true_negative += 1
         elif classification == 0 and real_value > 0:
             false_negative += 1
-    return true_positive, false_positive, true_negative, false_negative #,predicted_values
+    return true_positive, false_positive, true_negative, false_negative 
 
 def generate_prototypes(train,n):
     amount_negative_prototypes = mt.ceil(n/2)           # Quantidade de protótipos da classe negativa
@@ -55,12 +54,6 @@ def generate_prototypes(train,n):
     positive_prototypes = []
     class_positive_centroid = train_positive.mean()
     class_negative_centroid = train_negative.mean()
-    '''
-    var_max_positive = train_positive.var()/20
-    var_min_positive = train_positive.var()/100
-    var_max_negative = train_negative.var()/20
-    var_min_negative = train_negative.var()/100
-    '''
 
     for i in range(0,amount_negative_prototypes):
 
@@ -70,14 +63,6 @@ def generate_prototypes(train,n):
             new_prototype = train_positive.iloc[np.random.randint(0,train_positive.shape[0])]
             new_prototype = new_prototype + 0.5 * (class_negative_centroid - new_prototype)
             new_prototype["problems"]  = 0
-            '''
-            new_prototype = class_negative_centroid
-            for i in train_negative.columns:
-                if i == 'problems' or i == 'defects':
-                    break
-                else:
-                    new_prototype[i] = new_prototype[i] + np.random.uniform(var_min_negative[i],var_max_negative[i])
-            '''
             negative_prototypes.append( new_prototype )
             
 
@@ -88,15 +73,7 @@ def generate_prototypes(train,n):
         else:
             new_prototype = train_positive.iloc[np.random.randint(0,train_positive.shape[0])]
             new_prototype = new_prototype + 0.5 * (class_positive_centroid - new_prototype)
-            new_prototype["problems"]  = 1
-            '''
-            new_prototype = class_positive_centroid
-            for i in train_positive.columns:
-                if i == 'problems' or i == 'defects':
-                    break
-                else:
-                    new_prototype[i] = new_prototype[i] + np.random.uniform(var_min_positive[i],var_max_positive[i])
-            '''        
+            new_prototype["problems"]  = 1   
             positive_prototypes.append( new_prototype )
 
     return positive_prototypes, negative_prototypes 
@@ -138,7 +115,7 @@ def get_index_prototypes(prototypes):
     return indexed_prototypes
 
 def inside_window(p1,p2):
-    w = 0.2
+    w = 0.3
     s = (1 - w) / (1 + w)
     if min(p1/p2,p2/p1) > s:
         return True
@@ -146,8 +123,7 @@ def inside_window(p1,p2):
         return False
 
 def lvq1(df,positive_prototypes,negative_prototypes,n):
-    #prototypes = generate_prototypes(df,n)
-    #df.reset_index(drop=True)
+
     prototypes = positive_prototypes[0:mt.floor(n/2)] + negative_prototypes[0:mt.ceil(n/2)]
     for r in range(0,100):
         for i in range(0,df.shape[0]):
@@ -165,8 +141,7 @@ def lvq1(df,positive_prototypes,negative_prototypes,n):
     return pd.DataFrame(prototypes)
 
 def lvq2(df,positive_prototypes,negative_prototypes,n):
-    #df.reset_index(drop=True)
-    #prototypes = generate_prototypes(df,n)
+
     prototypes = positive_prototypes[0:mt.floor(n/2)] + negative_prototypes[0:mt.ceil(n/2)]
     indexed_prototypes = get_index_prototypes(prototypes)
     for r in range(0,100):
@@ -204,8 +179,7 @@ def lvq2(df,positive_prototypes,negative_prototypes,n):
     return lvq2_prototypes
 
 def lvq3(df,positive_prototypes,negative_prototypes,n):
-    #df.reset_index(drop=True)
-    #prototypes = generate_prototypes(df,n)
+
     prototypes = positive_prototypes[0:mt.floor(n/2)] + negative_prototypes[0:mt.ceil(n/2)]
     e = 0.3
     indexed_prototypes = get_index_prototypes(prototypes)
@@ -276,50 +250,44 @@ def execute_experiment(df_in,k_values,amount_prototypes):
         fp_rate_list = []
         for k in k_values:
             true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate = pre_knn(train_base,test,k)
-            #print("k-NN DEFAULD: K = {}:  TP = {}, FP = {}, TN = {}, FN = {}, TP_RATE = {}, FP_RATE = {}".format(k, true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate) )
             tp_rate_list_default.append((k,tp_rate))
             fp_rate_list_default.append((k,fp_rate))
             
             lvq_positive_prototypes,lvq_negative_prototypes = generate_prototypes(train_base,12)
-            #lvq_prototypes = lvq_positive_prototypes + lvq_negative_prototypes
-            #code.interact(local=dict(globals(), **locals()))
+
             for n in amount_prototypes:
                 train_lvq1 = lvq1(train_base,lvq_positive_prototypes,lvq_negative_prototypes,n)
-                true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate = pre_knn(train_lvq1,test,k) # add conf_matrix_lvq1
+                true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate = pre_knn(train_lvq1,test,k) 
                 tp_rate_list.append((k,n,tp_rate))
                 fp_rate_list.append((k,n,fp_rate))
-                #print("k-NN with LVQ1: K = {}:  TP = {}, FP = {}, TN = {}, FN = {}, TP_RATE = {}, FP_RATE = {} (N-prototypes = {})".format(k, true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate, n) )
-            #print("LVQ1: tp_rate_list_lvq1 = {}".format(tp_rate_list))
-            #print("LVQ1: fp_rate_list_lvq1 = {}".format(fp_rate_list))
+                
             tp_rate_list_lvq1.append(tp_rate_list)
             fp_rate_list_lvq1.append(fp_rate_list)
             tp_rate_list = []
             fp_rate_list = []
+
             for n in amount_prototypes:
                 train_lvq2 = lvq2(train_base,lvq_positive_prototypes,lvq_negative_prototypes,n)
-                true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate = pre_knn(train_lvq2, test, k) # # add conf_matrix_lvq2
+                true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate = pre_knn(train_lvq2, test, k)
                 tp_rate_list.append((k,n,tp_rate))
                 fp_rate_list.append((k,n,fp_rate))
-                #print("k-NN with LVQ2.1: K = {}:  TP = {}, FP = {}, TN = {}, FN = {}, TP_RATE = {}, FP_RATE = {} (N-prototypes = {})".format(k, true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate, n) )
-            #print("LVQ2.1: tp_rate_list_lvq2 = {}".format(tp_rate_list))
-            #print("LVQ2.1: fp_rate_list_lvq2 = {}".format(fp_rate_list))
+                
             tp_rate_list_lvq2.append(tp_rate_list)
             fp_rate_list_lvq2.append(fp_rate_list)
             tp_rate_list = []
             fp_rate_list = []
+
             for n in amount_prototypes:
                 train_lvq3 =lvq3(train_base,lvq_positive_prototypes,lvq_negative_prototypes,n)
-                true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate = pre_knn(train_lvq3, test, k) # add conf_matrix_lvq3
+                true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate = pre_knn(train_lvq3, test, k)
                 tp_rate_list.append((k,n,tp_rate))
                 fp_rate_list.append((k,n,fp_rate))
-                #print("k-NN with LVQ3: K = {}:  TP = {}, FP = {}, TN = {}, FN = {}, TP_RATE = {}, FP_RATE = {} (N-prototypes = {})".format(k, true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate, n) )
-            #print("LVQ3: tp_rate_list_lvq3 = {}".format(tp_rate_list))
-            #print("LVQ3: fp_rate_list_lvq3 = {}".format(fp_rate_list))
+                
             tp_rate_list_lvq3.append(tp_rate_list)
             fp_rate_list_lvq3.append(fp_rate_list)
             tp_rate_list = []
             fp_rate_list = []
-        #print(tp_rate_list_default)
+        
     print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp_rate_list_lvq1,tp_rate_list_lvq2,fp_rate_list_lvq2,tp_rate_list_lvq3,fp_rate_list_lvq3)
 
 def print_results(tp_rate_list_default,fp_rate_list_default,tp_rate_list_lvq1,fp_rate_list_lvq1,tp_rate_list_lvq2,fp_rate_list_lvq2,tp_rate_list_lvq3,fp_rate_list_lvq3):
@@ -605,9 +573,8 @@ def pre_knn(df_train,df_test,k):
     true_positive, false_positive, true_negative, false_negative= knn_normal( k, train, test, test_labels) # add predicted_values?
     tp_rate = true_positive/(true_positive + false_negative)
     fp_rate = false_positive/(false_positive + true_negative)
-    #conf_matrix = confusion_matrix(test_labels, predicted_values)
 
-    return true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate # conf_matrix
+    return true_positive, false_positive, true_negative, false_negative, tp_rate, fp_rate 
       
 database_name_1 = 'kc1.arff'
 database_name_2 = 'kc2.arff'
